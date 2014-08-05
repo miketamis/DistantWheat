@@ -109,8 +109,10 @@ public class WorldServer extends World
 
             this.wakeAllPlayers();
         }
+        this.theProfiler.startSection("chunkUpdates");
+        updateChunks();
 
-        this.theProfiler.startSection("mobSpawner");
+        this.theProfiler.endStartSection("mobSpawner");
 
         if (this.getGameRules().getGameRuleBooleanValue("doMobSpawning"))
         {
@@ -148,6 +150,8 @@ public class WorldServer extends World
         this.sendAndApplyBlockEvents();
     }
 
+    private void updateChunks() {
+    }
     /**
      * only spawns creatures allowed by the chunkProvider
      */
