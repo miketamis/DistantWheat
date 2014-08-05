@@ -208,6 +208,7 @@ public class AnvilChunkLoader implements IChunkLoader, IThreadedFileIO
     {
         par3NBTTagCompound.setInteger("xPos", par1Chunk.xPosition);
         par3NBTTagCompound.setInteger("zPos", par1Chunk.zPosition);
+        par3NBTTagCompound.setLong("lastTickUpdate", par1Chunk.lastTickUpdate);
         par3NBTTagCompound.setLong("LastUpdate", par2World.getTotalWorldTime());
         par3NBTTagCompound.setIntArray("HeightMap", par1Chunk.heightMap);
         par3NBTTagCompound.setBoolean("TerrainPopulated", par1Chunk.isTerrainPopulated);
@@ -320,6 +321,9 @@ public class AnvilChunkLoader implements IChunkLoader, IThreadedFileIO
         int var3 = par2NBTTagCompound.getInteger("xPos");
         int var4 = par2NBTTagCompound.getInteger("zPos");
         Chunk var5 = new Chunk(par1World, var3, var4);
+        if(par2NBTTagCompound.hasKey("lastTickUpdate")) {
+            var5.lastTickUpdate =  par2NBTTagCompound.getLong("lastTickUpdate");
+        }
         var5.heightMap = par2NBTTagCompound.getIntArray("HeightMap");
         var5.isTerrainPopulated = par2NBTTagCompound.getBoolean("TerrainPopulated");
         var5.inhabitedTime = par2NBTTagCompound.getLong("InhabitedTime");

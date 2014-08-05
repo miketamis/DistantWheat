@@ -1447,4 +1447,16 @@ public class Chunk
             }
         }
     }
+    long lastTickUpdate = -1;
+    public void tick(World world,Random rnd, long time, int distanceToPlayer) {
+        long timeSinceUpdate = 1;
+        if(lastTickUpdate != -1) {
+            timeSinceUpdate = time - lastTickUpdate;
+        }
+        lastTickUpdate = time;
+        if (timeSinceUpdate <= 0) {
+            return;
+        }
+        System.out.println("time since last update:" + timeSinceUpdate);
+    }
 }
