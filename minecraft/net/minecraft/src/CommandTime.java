@@ -89,6 +89,7 @@ public class CommandTime extends CommandBase
         {
             WorldServer var4 = MinecraftServer.getServer().worldServers[var3];
             var4.setWorldTime(var4.getWorldTime() + (long)par2);
+            var4.worldInfo.incrementTotalWorldTime(var4.getTotalWorldTime() + (long)par2);
         }
     }
 }
