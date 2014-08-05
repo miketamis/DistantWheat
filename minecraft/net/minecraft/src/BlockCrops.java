@@ -4,12 +4,15 @@ import java.util.Random;
 
 public class BlockCrops extends BlockFlower
 {
+    private static final int MAX_LEVEL = 7;
+    private static final int DAY_LENGTH = 24000;
+    private static final int MAX_SUNLIGHT_LEVEL = 15;
     private Icon[] iconArray;
+    private int growthStage;
 
     protected BlockCrops(int par1)
     {
         super(par1);
-        this.setTickRandomly(true);
         float var2 = 0.5F;
         this.setBlockBounds(0.5F - var2, 0.0F, 0.5F - var2, 0.5F + var2, 0.25F, 0.5F + var2);
         this.setCreativeTab((CreativeTabs)null);
@@ -27,28 +30,124 @@ public class BlockCrops extends BlockFlower
         return par1 == Block.tilledField.blockID;
     }
 
-    /**
-     * Ticks the block if it's been scheduled
-     */
-    public void updateTick(World par1World, int par2, int par3, int par4, Random par5Random)
-    {
-        super.updateTick(par1World, par2, par3, par4, par5Random);
+    int averageTimeTakenForRandomTick = 1365;
+    public int getAverageGrowthTime(World world, int i, int j, int k) {
+        return  averageTimeTakenForRandomTick * (int)(25.0F / getGrowthRate(world, i, j, k)) + 1;
 
-        if (par1World.getBlockLightValue(par2, par3 + 1, par4) >= 9)
-        {
-            int var6 = par1World.getBlockMetadata(par2, par3, par4);
+    }
 
-            if (var6 < 7)
-            {
-                float var7 = this.getGrowthRate(par1World, par2, par3, par4);
+    private void randomBasedGrowth(World world, int i, int j, int k, Random rnd,
+                                          int averageGrowthTime, int timeSinceUpdate) {
+        if (rnd.nextInt(averageGrowthTime/timeSinceUpdate) == 0)
+            grow(world, i,  j, k);
+    }
 
-                if (par5Random.nextInt((int)(25.0F / var7) + 1) == 0)
-                {
-                    ++var6;
-                    par1World.setBlockMetadataWithNotify(par2, par3, par4, var6, 2);
-                }
-            }
+    public void updateTimeTick(World world, int i, int j, int k, Random rnd, long timeSinceUpdate, int distanceToPlayer) {
+        if(getGrowthStage(world, i, j, k) >= MAX_LEVEL) {
+            return;
         }
+        int averageGrowthTime = getAverageGrowthTime(world, i, j, k);
+
+        if (canQuickUpdate(averageGrowthTime, timeSinceUpdate)) {
+            if(world.getBlockLightValue(i, j + 1, k) >= getRequiredLight())
+                randomBasedGrowth(world, i, j,k , rnd,averageGrowthTime, (int) timeSinceUpdate);
+            return;
+        }
+
+        if(!canGrowWithorWithoutSun(world, i, j, k)) {
+           return;
+        }
+
+        if(canGrowWithoutSun(world, i, j, k)) {
+            timeBasedGrowth(world, i, j, k, rnd, averageGrowthTime, (int) timeSinceUpdate);
+        } else {
+
+            int startTime = getStartTime(world.getWorldTime(), timeSinceUpdate);
+            int timeGrowable = getTimeGrowable(world, i, j, k);
+            int timeNotGrowable = getTimeNotGrowable(world, i, j, k);
+            int lengthOfUngrowablePeriod = timeGrowable - timeNotGrowable;
+
+            timeSinceUpdate -= jumpToGrowablePeriod(world, i, j, k, rnd, startTime, averageGrowthTime, timeSinceUpdate);
+            while (timeSinceUpdate > 0) {
+                int growthLength = DAY_LENGTH - lengthOfUngrowablePeriod;
+                if (growthLength > timeSinceUpdate) {
+                    growthLength = (int) timeSinceUpdate;
+                }
+                timeBasedGrowth(world, i, j, k, rnd, averageGrowthTime, growthLength);
+                timeSinceUpdate -= DAY_LENGTH;
+            }
+
+        }
+    }
+
+    private boolean canGrowWithorWithoutSun(World world, int i, int j, int k) {
+        return getLightValueAtFullSun(world,i, j, k) >= getRequiredLight();
+    }
+
+    private boolean canGrowWithoutSun(World world, int i, int j, int k) {
+        return getLightValueWithoutSun(world, i, j, k) >= getRequiredLight();
+    }
+
+    private int jumpToGrowablePeriod(World world, int i, int j, int k, Random rnd,
+                                     int startTime, int averageGrowthTime, long timeSinceUpdate) {
+
+        int timeGrowable = getTimeGrowable(world, i, j, k);
+        int timeNotGrowable = getTimeNotGrowable(world, i, j, k);
+        int lengthOfUngrowablePeriod = timeGrowable - timeNotGrowable; //aka night
+        if(timeGrowable > startTime && startTime > timeNotGrowable) //in night period
+        {
+            return timeGrowable - startTime;
+        }
+        int timeTillNotGrowable = timeNotGrowable - startTime;
+        if (timeTillNotGrowable < 0) {
+            timeTillNotGrowable += DAY_LENGTH;
+        }
+        if (timeTillNotGrowable > timeSinceUpdate) {
+            timeTillNotGrowable = (int) timeSinceUpdate;
+        }
+        timeBasedGrowth(world, i, j, k, rnd, averageGrowthTime, timeTillNotGrowable);
+        return timeTillNotGrowable + lengthOfUngrowablePeriod;
+    }
+
+    private void timeBasedGrowth(World world, int i, int j, int k, Random rnd,
+                                 int averageGrowthTime, int time) {
+        int timeTillNextGrowth = getTimeTillNextGrowth(rnd, averageGrowthTime);
+        if (time > timeTillNextGrowth) {
+            grow(world, i, j, k);
+            timeBasedGrowth(world, i, j, k, rnd, averageGrowthTime, time - timeTillNextGrowth);
+        } else if(rnd.nextFloat() < time/timeTillNextGrowth) {
+            grow(world, i, j, k);
+        }
+    }
+
+    private int getTimeTillNextGrowth(Random rnd, int averageGrowthTime) {
+        int timeTillNextGrowth = (int) (Math.log(1-rnd.nextFloat())* -averageGrowthTime);
+        return timeTillNextGrowth > 0 ? timeTillNextGrowth : 1;
+    }
+
+    private int getStartTime(long worldTime, long timeSinceUpdate) {
+
+        int startTime = (int) (worldTime - timeSinceUpdate % DAY_LENGTH);
+        if (startTime < 0) {
+            startTime += DAY_LENGTH;
+        }
+        return startTime % DAY_LENGTH;
+    }
+
+    private boolean canQuickUpdate(int averageGrowthTime, long timeSinceUpdate) {
+        return timeSinceUpdate < averageGrowthTime && timeSinceUpdate < 400;
+    }
+
+    private void grow(World world, int i, int j, int k) {
+        int growthStage = getGrowthStage(world, i, j, k);
+        if (growthStage < MAX_LEVEL) {
+            ++growthStage;
+            SetGrowthStage(world, i, j, k, growthStage);
+        }
+    }
+
+    private void SetGrowthStage(World world, int i, int j, int k, int growthStage) {
+        world.setBlockMetadataWithNotify(i, j, k, growthStage, 2);
     }
 
     /**
@@ -217,5 +316,35 @@ public class BlockCrops extends BlockFlower
         {
             this.iconArray[var2] = par1IconRegister.registerIcon(this.getTextureName() + "_stage_" + var2);
         }
+    }
+
+    public int getGrowthStage(World world, int i,int j,int k) {
+        return world.getBlockMetadata(i, j, k);
+    }
+
+    public int getTimeGrowable(World world, int i, int j, int k) {
+        return DAY_LENGTH - (MAX_SUNLIGHT_LEVEL - getRequiredLight() - getLightSubtraction(world, i, j, k)) * 164;
+    }
+
+    public int getTimeNotGrowable(World world, int i, int j, int k) {
+        return 12000 + (MAX_SUNLIGHT_LEVEL - getRequiredLight() - getLightSubtraction(world, i, j, k)) * 164;
+    }
+
+    public int getLightValueWithoutSun(World world, int i, int j, int k) {
+        Chunk thisChunk = world.getChunkFromChunkCoords(i >> 4, k >> 4);
+        return thisChunk.getBlockLightValue(i & 15, j + 1, k & 15, MAX_SUNLIGHT_LEVEL);
+    }
+
+    public int getLightValueAtFullSun(World world, int i, int j, int k) {
+        Chunk thisChunk = world.getChunkFromChunkCoords(i >> 4, k >> 4);
+        return thisChunk.getBlockLightValue(i & 15, j + 1, k & 15, 0);
+    }
+
+    public int getRequiredLight() {
+        return 9;
+    }
+
+    public int getLightSubtraction(World world, int i, int j, int k) {
+        return MAX_SUNLIGHT_LEVEL - getLightValueAtFullSun(world, i, j, k);
     }
 }
