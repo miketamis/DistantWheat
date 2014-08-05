@@ -151,7 +151,66 @@ public class WorldServer extends World
     }
 
     private void updateChunks() {
+        System.out.println("updating Chunk");
+        if(worldInfo.getWorldTotalTime() % 100 != 0) {
+           rebuildUpdateList();
+        } else if (totalPriority > 0){
+            int i = rand.nextInt(totalPriority);
+            for(ChunkDistanceAndPriority c : chunksToUpdate) {
+                i -= c.priority;
+                if(i > 0) {
+                    c.chunk.tick(this, this.rand, worldInfo.getWorldTotalTime(), c.distance);
+                }
+            }
+        }
     }
+    int totalPriority = 0;
+    private class ChunkDistanceAndPriority {
+        Chunk chunk;
+        int distance;
+        int priority;
+
+        public ChunkDistanceAndPriority(Chunk chunk, int distance, int priority) {
+            this.chunk = chunk;
+            this.distance = distance;
+            this.priority = priority;
+        }
+    }
+    List<ChunkDistanceAndPriority> chunksToUpdate = new ArrayList<ChunkDistanceAndPriority>();
+    private void rebuildUpdateList() {
+        chunksToUpdate.clear();
+        for (Object o : this.playerEntities) {
+            EntityPlayer player = (EntityPlayer) o;
+            int playerX = MathHelper.floor_double(player.posX / 16.0D);
+            int playerY = MathHelper.floor_double(player.posZ / 16.0D);
+            for(int i = -3; i <= 3; i++) {
+                for (int j = -3; j <= 3; j++) {
+                    int distance = i*i + j*j;
+                    addChunkToPriority(getChunkFromChunkCoords(playerX + i, playerY + j),distance, 19 - distance);
+                }
+            }
+        }
+    }
+    private void addChunkToPriority(Chunk chunk, int distance, int priority) {
+        boolean found = false;
+        for(ChunkDistanceAndPriority c : chunksToUpdate) {
+            if(chunk == c.chunk) {
+                System.out.println("Found");
+                found = true;
+                c.priority += priority;
+                totalPriority += priority;
+                if(c.distance > distance) {
+                    c.distance = distance;
+                }
+            }
+        }
+        if(!found) {
+            System.out.println("Not Found");
+            chunksToUpdate.add(new ChunkDistanceAndPriority(chunk, distance, priority));
+            totalPriority += priority;
+        }
+    }
+
     /**
      * only spawns creatures allowed by the chunkProvider
      */
