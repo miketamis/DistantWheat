@@ -1458,5 +1458,15 @@ public class Chunk
             return;
         }
         System.out.println("time since last update:" + timeSinceUpdate);
+        for(int i = 0; i < 16; i++) {
+            for (int j = 0; j < 128; j++){
+                for (int k = 0; k < 16; k++) {
+                    int blockId = this.getBlockID(i, j, k);
+                    if(blockId != 0)
+                    Block.blocksList[blockId].updateTimeTick(world,  i + xPosition * 16,  j,  k + zPosition * 16, rnd, timeSinceUpdate, distanceToPlayer);
+                }
+
+            }
+        }
     }
 }

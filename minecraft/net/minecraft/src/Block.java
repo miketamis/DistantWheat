@@ -1385,4 +1385,8 @@ public class Block
         canBlockGrass[0] = true;
         StatList.initBreakableStats();
     }
+
+    public void updateTimeTick(World world, int i, int j, int k, Random rnd, long timeSinceUpdate, int distanceToPlayer) {
+
+    }
 }
